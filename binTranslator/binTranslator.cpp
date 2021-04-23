@@ -2,9 +2,11 @@
 
 #define PRINT_ERR(message) printf ("%s in function %s. The error was catched on line %d\n", message, __FUNCTION__, __LINE__)
 
-ProgramHeader pHeader = {};
+ProgramHeader   pHeader                         = {};
+Label           labelTable [MAX_LABEL_COUNT]    = {};
 
-static size_t programSize = 0;
+static int      labelNum      = 0;
+static size_t   programSize   = 0;
 
 void BinaryTranslation (const char* input, const char* elfOutput) {
 
@@ -58,8 +60,35 @@ void HandleInputByteCode (FILE* input, char* JITBuffer) {
 
     char* bufferPointerForFree = _myByteCode._byteCode;
 
+    BytePassage (JITBuffer, 1, _myByteCode);
+    LabelSort ();
+    labelNum--;
+
+    BytePassage (JITBuffer, 2, _myByteCode);
+
+    BytePassage (JITBuffer, 3, _myByteCode);
+
+    free (bufferPointerForFree);
+
+}
+
+void BytePassage (char* JITBuffer, size_t passageNum, InputByteCode _myByteCode) {
+
+    size_t firstInputSize   = _myByteCode._size;
+    programSize             = STDLIB_SIZE;
+    
     while (_myByteCode._size != 0) {
 
+        if (passageNum == 2 && labelNum >= 0) {
+
+            if ((firstInputSize - _myByteCode._size + 1) == labelTable [labelNum].inputVal) {
+                
+                labelTable [labelNum].outputVal = programSize - STDLIB_SIZE;
+                labelNum--;
+
+            }
+        }
+        
         char command = *(_myByteCode._byteCode);
         _myByteCode._byteCode++;
 
@@ -105,9 +134,29 @@ void HandleInputByteCode (FILE* input, char* JITBuffer) {
                 ImplementMath (JITBuffer, SQRT);
                 break;
             }
+            case jmp: {
+                ImplementJmp (JITBuffer, passageNum, &_myByteCode, JMP);
+                break;
+            }
+            case je: {
+                ImplementJmp (JITBuffer, passageNum, &_myByteCode, JE);
+                break;
+            }
+            case ja: {
+                ImplementJmp (JITBuffer, passageNum, &_myByteCode, JA);
+                break;
+            }
+            case jb: {
+                ImplementJmp (JITBuffer, passageNum, &_myByteCode, JB);
+                break;
+            }
+            case jne: {
+                ImplementJmp (JITBuffer, passageNum, &_myByteCode, JNE);
+                break;
+            }
             default:
                 PRINT_ERR ("Undefined command");
-                printf ("%c\n", *(_myByteCode._byteCode));
+                printf ("%c = %d\n", *(_myByteCode._byteCode), *(_myByteCode._byteCode));
                 return;
 
         }
@@ -116,9 +165,17 @@ void HandleInputByteCode (FILE* input, char* JITBuffer) {
 
     }
 
-    free (bufferPointerForFree);
+    if (passageNum == 2 && labelNum >= 0) {
+            if ((firstInputSize - _myByteCode._size + 1) == labelTable [labelNum].inputVal) {
+                
+                labelTable [labelNum].outputVal = programSize - STDLIB_SIZE;
+                labelNum--;
+
+            }
+    }
 
 }
+
 void PutCommandsIntoByteCode (char* JITBuffer, size_t byteCount, ...) {
 
     va_list byteList;
@@ -126,7 +183,6 @@ void PutCommandsIntoByteCode (char* JITBuffer, size_t byteCount, ...) {
 
     for (size_t byte = 0; byte < byteCount; byte++) {
 
-        printf ("here %zu\n", programSize);
         JITBuffer [programSize++] = (char)(va_arg (byteList, int));
 
     }
@@ -154,7 +210,6 @@ void IncludeStdLib (char* JITBuffer) {
     
     size_t sizeOfStdLib     = GetSizeOfFile (stdLib);
     STDLIB_SIZE = sizeOfStdLib;
-    printf ("Size of file %zu\n", sizeOfStdLib);
     
     char* stdLibBinaryCode  = (char*)calloc (sizeOfStdLib, sizeof (char));
     if (!stdLibBinaryCode) {
@@ -323,14 +378,12 @@ void ImplementPop (char* JITBuffer, InputByteCode* _byteCodeStruct) {
 
 }
 
-void ImplementPush   (char* JITBuffer, InputByteCode* _byteCodeStruct) {
+void ImplementPush (char* JITBuffer, InputByteCode* _byteCodeStruct) {
 
     char modeMem = *((inputBuffer)++);
     char modeReg = *((inputBuffer)++);
     char modeNum = *((inputBuffer)++);
     inputSize -= 3;
-
-    printf ("After mode %d\n", *(_byteCodeStruct->_byteCode));
 
     if (modeNum == 1) {
 
@@ -369,4 +422,100 @@ void ImplementPush   (char* JITBuffer, InputByteCode* _byteCodeStruct) {
     }
 
 }
+
+void ImplementJmp (char* JITBuffer, size_t passageNum, InputByteCode* _byteCodeStruct, int jmpNum) {
+
+    IMPLEMENT_JMP_CONDITION
+
+    PutCommandsIntoByteCode (JITBuffer, 1, jmpNum);
+
+    printf ("1) Program size %zu\n", programSize - STDLIB_SIZE);
+
+    if (passageNum == 1 || passageNum == 3) {
+
+        size_t number = 0;
+
+        for (size_t numByte = 0; numByte < sizeof (size_t); numByte++) {
+            
+            number *= 10;
+            number += (unsigned char)inputBuffer [numByte];
+
+        }
+        inputBuffer += sizeof (size_t);
+        inputSize   -= sizeof (size_t);
+
+        if (passageNum == 3) {
+            
+            for (size_t labelCount = 0; labelCount < labelNum; labelCount++) {
+
+                if (number == (labelTable [labelCount]).inputVal) {
+                    
+                    int adress = (labelTable [labelCount]).outputVal - programSize - 0x4 + STDLIB_SIZE;
+                    *(int*)(JITBuffer + programSize) = adress;
+                    programSize += 4;
+
+                    return;
+
+                }
+
+            }
+            
+        }
+
+        bool newLabel = true;
+        for (size_t labelCount = 0; labelCount < labelNum; labelCount++) {
+
+            if (number == (labelTable [labelCount]).inputVal) {
+                
+                newLabel = false;
+                break;
+
+            }
+
+        }
+
+        if (newLabel) {
+
+            labelTable [labelNum++] = {number, 0};
+
+        }
+
+        PutCommandsIntoByteCode (JITBuffer, 4, 0x0, 0x0, 0x0, 0x0);
+
+    } else if (passageNum == 2) {
+
+        inputBuffer += sizeof (size_t);
+        inputSize   -= sizeof (size_t);
+
+        PutCommandsIntoByteCode (JITBuffer, 4, 0x0, 0x0, 0x0, 0x0);
+
+    } else {
+
+        PRINT_ERR ("Unexpected passageNum");
+        return;
+
+    }
+
+}
+
+void LabelSort () {
+
+    for (size_t i = 0; i < labelNum; i++) {
+
+        for (size_t j = i; j < labelNum; j++) {
+
+            if (labelTable [i].inputVal < labelTable [j].inputVal) {
+
+                size_t temp = labelTable [i].inputVal;
+                labelTable [i].inputVal = labelTable [j].inputVal;
+                labelTable [j].inputVal = temp;
+
+            }
+
+        }
+
+    }
+
+}
+
 

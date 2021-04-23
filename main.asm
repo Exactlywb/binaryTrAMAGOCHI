@@ -167,7 +167,7 @@ _out:
 
         push            r11
         
-        cmp             rbx, 0xFFFFFFFF         ; if 2's compliment
+        cmp             rbx, 0xFFFFFFFF
         jg              _regularNumber
         xor             rbx, 0xFFFFFFFFFFFFFFFF
         inc             rbx
@@ -194,7 +194,7 @@ _nextHandling:
         mov             al, dl
         add             al, 0x30                ; + '0'
         stosb
-        mov             rax, rcx                ; restore rax
+        mov             rax, rcx
                 
         or              rax, rax
         je              _endHandling
@@ -203,7 +203,7 @@ _nextHandling:
 _endHandling:            
 
         dec             rdi                     ; print
-        mov             rsi, rdi                ; digits
+        mov             rsi, rdi
         
         call            _printNumber
         
@@ -295,6 +295,8 @@ _printNoDot:
 
 _start:
 
-        sqrtsd          xmm7, xmm7
+        call            _callIn
+        call            _callOut
+        call            _callOut
                 
         call            _callHlt

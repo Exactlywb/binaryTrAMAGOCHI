@@ -16,10 +16,19 @@ enum JmpTable {
 
 };
 
+enum JmpNum {
+
+    JMP = 0xE9,
+    JE  = 0x84,
+    JNE = 0x85,
+    JA  = 0x87,
+    JB  = 0x82
+
+};
+
 #define CALL_BYTE_CODE                  1, 0xE8
 #define PUSH_BYTE_CODE                  1, 0x6A
 #define JMP_IN_QWORD                    2, 0xEB, 0x08
-#define JMP                             1, 0xEB
 
 #define inputBuffer                     _byteCodeStruct->_byteCode
 #define inputSize                       _byteCodeStruct->_size
@@ -49,3 +58,18 @@ enum JmpTable {
 
 #define POP_REGULAR                                                                                                 \
                                         PutCommandsIntoByteCode (JITBuffer, 4, 0x48, 0x83, 0xC4, 0x08);             //rsp += 8
+
+#define PUT_CONDITION                                                                                               \
+                                        PutCommandsIntoByteCode (JITBuffer, 4, 0x66, 0x0F, 0x2F, 0xF7);
+
+#define IMPLEMENT_JMP_CONDITION                                                                                     \
+                                        if (jmpNum != JMP) {                                                        \
+                                                                                                                    \
+                                            GET_XMM_FROM_STACK (6)                                                  \
+                                            POP_REGULAR                                                             \
+                                            GET_XMM_FROM_STACK (7)                                                  \
+                                            POP_REGULAR                                                             \
+                                            PUT_CONDITION                                                           \
+                                            PutCommandsIntoByteCode (JITBuffer, 1, 0x0F);                           \
+                                                                                                                    \
+                                        }   

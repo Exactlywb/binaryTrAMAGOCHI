@@ -51,6 +51,13 @@ struct InputByteCode {
 
 };
 
+struct Label {
+
+    size_t inputVal     = 0;
+    size_t outputVal    = 0;
+
+};
+
 enum CommandsNum {
 
     #define DEF_CMD(name, asmFunc, cpuFunc) name, 
@@ -61,6 +68,7 @@ enum CommandsNum {
 
 const   size_t MAX_CODE_SIZE    = 0x00010000;
 const   size_t PROGRAM_START    = 0x00400000;
+const   size_t MAX_LABEL_COUNT  = 100;
 static  size_t STDLIB_SIZE      = 0;
 
 void            BinaryTranslation       (const char* input, const char* elfOutput);
@@ -68,16 +76,19 @@ void            BinaryTranslation       (const char* input, const char* elfOutpu
 FILE*           CreateELFFile           (const char* elfOutput);
 void            PrintELFHeader          (char* buffer);
 void            HandleInputByteCode     (FILE* input, char* JITBuffer);
+void            BytePassage             (char* JITBuffer, size_t passageNum, InputByteCode _myByteCode);
 void            ReadInputByteCode       (FILE* input, InputByteCode* _byteCodeStruct);
 void            IncludeStdLib           (char* JITBuffer);
 
 void            PutCommandsIntoByteCode (char* JITBuffer, size_t countBytes, ...);
-void            ImplementPush           (char* JITBuffer, InputByteCode* _byteCodeStruct);
-void            ImplementPop            (char* JITBuffer, InputByteCode* _byteCodeStruct);
 
 size_t          GetSizeOfFile           (FILE* input);
+void            LabelSort               ();
 
 //========================TRANSLATE INTO BYTE CODE=============================
 
 void            CallForStdLib           (char* JITBuffer, int jmpNum);
 void            ImplementMath           (char* JITBuffer, int mathNum);
+void            ImplementJmp            (char* JITBuffer, size_t passageNum, InputByteCode* _byteCodeStruct, int jmpNum);
+void            ImplementPush           (char* JITBuffer, InputByteCode* _byteCodeStruct);
+void            ImplementPop            (char* JITBuffer, InputByteCode* _byteCodeStruct);
