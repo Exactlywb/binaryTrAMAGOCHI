@@ -32,15 +32,15 @@ struct ELFHeader {
 
 struct ProgramHeader {
 
-    const int       P_TYPE      = 0x00000001;
-    const int       P_FLAGS     = 0x00000004;
-    const size_t    P_OFFSET    = 0x0000000000000000;
-    const size_t    P_VADDR     = 0x0000000000400000;
-    const size_t    P_PADDR     = 0x0000000000400000;
-    size_t          P_FILES;                            // Are these two fields equal?
-    size_t          P_MEMSZ;                            //
-    const size_t    P_ALIGN     = 0x0000000000001000;
-    const size_t    P_SPAC      = 0x0000000500000001;
+    const char      P_TYPE   [4]        = {0x01, 0x00, 0x00, 0x00};
+    const char      P_FLAGS  [4]        = {0x04, 0x00, 0x00, 0x00};
+    const char      P_OFFSET [8]        = {0x00};
+    const char      P_VADDR  [8]        = {0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00};
+    const char      P_PADDR  [8]        = {0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00};
+    size_t          P_FILES;
+    size_t          P_MEMSZ;
+    const char      P_ALIGN  [8]        = {0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    const char      P_SPAC   [8]        = {0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x05, 0x00};
 
 };
 
