@@ -61,8 +61,16 @@ struct Label {
 enum CommandsNum {
 
     #define DEF_CMD(name, asmFunc, cpuFunc) name, 
-    #include "../../aleria_asm/commands"
+    #include "../../../aleria_asm/commands"
     #undef  DEF_CMD
+
+};
+
+enum PassageNums {
+
+    FirstPassage    = 1 ,
+    SecondPassage       ,
+    ThirdPassage
 
 };
 
@@ -71,24 +79,32 @@ const   size_t PROGRAM_START    = 0x00400000;
 const   size_t MAX_LABEL_COUNT  = 100;
 static  size_t STDLIB_SIZE      = 0;
 
+int             HandleInputMode         (int argc, char* argv []);
+
+//=============================KING - FUNCTION==============================
 void            BinaryTranslation       (const char* input, const char* elfOutput);
 
-FILE*           CreateELFFile           (const char* elfOutput);
-void            PrintELFHeader          (char* buffer);
-void            HandleInputByteCode     (FILE* input, char* JITBuffer);
-void            BytePassage             (char* JITBuffer, size_t passageNum, InputByteCode _myByteCode);
+//=================================PARSING==================================
 void            ReadInputByteCode       (FILE* input, InputByteCode* _byteCodeStruct);
-void            IncludeStdLib           (char* JITBuffer);
+void            BytePassage             (char* JITBuffer, size_t passageNum, InputByteCode _myByteCode);
+
+
+//========================TRANSLATE INTO BYTE CODE==========================
+void            HandleInputByteCode     (FILE* input, char* JITBuffer);
 
 void            PutCommandsIntoByteCode (char* JITBuffer, size_t countBytes, ...);
-
-size_t          GetSizeOfFile           (FILE* input);
-void            LabelSort               ();
-
-//========================TRANSLATE INTO BYTE CODE=============================
 
 void            CallForStdLib           (char* JITBuffer, int jmpNum);
 void            ImplementMath           (char* JITBuffer, int mathNum);
 void            ImplementJmp            (char* JITBuffer, size_t passageNum, InputByteCode* _byteCodeStruct, int jmpNum);
 void            ImplementPush           (char* JITBuffer, InputByteCode* _byteCodeStruct);
 void            ImplementPop            (char* JITBuffer, InputByteCode* _byteCodeStruct);
+
+//=======================BUILDING EXECUTABLE FILE==========================
+FILE*           CreateELFFile           (const char* elfOutput);
+void            IncludeStdLib           (char* JITBuffer);
+void            PrintELFHeader          (char* buffer);
+
+//==================================OTHER==================================
+size_t          GetSizeOfFile           (FILE* input);
+void            LabelSort               ();

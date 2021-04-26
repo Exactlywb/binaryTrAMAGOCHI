@@ -1,0 +1,45 @@
+:Loop
+push 0
+pop rbx
+
+:PrepareB4Factorial
+
+push 1      #
+push rbx    #rbx += 1
+add         #
+pop rbx     #
+
+push 1      #
+pop rcx     #counter
+
+push 1      #
+pop rax     #answer
+
+:Factorial
+push rcx
+push 10
+je Exit
+
+push rax    #
+out         #print answer
+pop         #
+
+push rcx    #
+push 1      #counter += 1
+add         #
+pop rcx     #
+
+push rax    #
+push rcx    #answer *= counter
+mul         #
+pop rax     #
+
+jmp Factorial
+
+:Exit
+
+push rbx
+push 1000
+jne PrepareB4Factorial
+
+hlt

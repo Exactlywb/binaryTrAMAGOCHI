@@ -34,9 +34,9 @@ enum JmpNum {
 #define inputSize                       _byteCodeStruct->_size
 
 #define SUB_RSP_FOR_XMM                 PutCommandsIntoByteCode (JITBuffer, 4, 0x48, 0x83, 0xEC, 0x08);
-#define PUSH_XMM_INTO_STACK(xmmPrefix)  PutCommandsIntoByteCode (JITBuffer, 5, 0xF2, 0x0F, 0x11, 0x04 + 8 * xmmPrefix, 0x24);
+#define PUSH_XMM_INTO_STACK(xmmPostfix)  PutCommandsIntoByteCode (JITBuffer, 5, 0xF2, 0x0F, 0x11, 0x04 + 8 * xmmPostfix, 0x24);
 
-#define GET_XMM_FROM_STACK(xmmPrefix)   PutCommandsIntoByteCode (JITBuffer, 5, 0xF2, 0x0F, 0x10, 0x04 + 8 * xmmPrefix, 0x24);     
+#define GET_XMM_FROM_STACK(xmmPostfix)   PutCommandsIntoByteCode (JITBuffer, 5, 0xF2, 0x0F, 0x10, 0x04 + 8 * xmmPostfix, 0x24);     
 
 #define PUSH_NUMBER                                                                                                 \
                                         PutCommandsIntoByteCode (JITBuffer, JMP_IN_QWORD);                          \
@@ -73,3 +73,6 @@ enum JmpNum {
                                             PutCommandsIntoByteCode (JITBuffer, 1, 0x0F);                           \
                                                                                                                     \
                                         }   
+
+#define FILL_SPACE_ADDRESS                                                                                          \
+                                        PutCommandsIntoByteCode (JITBuffer, 4, 0x0, 0x0, 0x0, 0x0);

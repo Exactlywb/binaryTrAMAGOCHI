@@ -15,8 +15,8 @@ _callOut:
 ;===================================================
 
 _hlt:
-        mov             rax, 3Ch        ;exit code
-        xor             rdi, rdi        ;error code
+        mov             rax, 3Ch                ;exit code
+        xor             rdi, rdi                ;error code
         syscall
 
 ;===================================================
@@ -28,37 +28,37 @@ _hlt:
 _in:
         mov             r12, rsp
 
-        sub             rsp, 64             ;size for buffer
+        sub             rsp, 64                 ;size for buffer
 
-        mov             rax, 0h             ;
-        mov             rdi, 0h             ;
-        mov             rsi, rsp            ;INPUT
-        mov             rdx, 64             ;
-        syscall                     ;
+        mov             rax, 0h                 ;
+        mov             rdi, 0h                 ;
+        mov             rsi, rsp                ;INPUT
+        mov             rdx, 64                 ;
+        syscall                                 ;
 
         mov             rsp, r12
 
         mov             rcx, rax        
-        dec             rcx                 ;length in rcx
-        mov             rdi, 0              ;an amount of numbers before the dot
-        call            _transformNumber    ;transform our number
+        dec             rcx                     ;length in rcx
+        mov             rdi, 0                  ;an amount of numbers before the dot
+        call            _transformNumber        ;transform our number
 
         ;now we got rax with our number
         ;and rdx <- the degree of ten
         ;we have to do rax / 10^(rdx)
         ;let's f*ckin' do it
 
-        call            pow10               ;now in rbx we have 10^(rdx)
+        call            pow10                   ;now in rbx we have 10^(rdx)
 
-        cvtsi2sd        xmm7, rax           ;xmm7 = rax
-        cvtsi2sd        xmm6, rbx           ;xmm6 = rbx = 10^(rdx)
+        cvtsi2sd        xmm7, rax               ;xmm7 = rax
+        cvtsi2sd        xmm6, rbx               ;xmm6 = rbx = 10^(rdx)
 
         divsd           xmm7, xmm6
 
         pop             r12
 
         sub             rsp, 8
-        movsd           qword [rsp], xmm7   ;push this shit into stack
+        movsd           qword [rsp], xmm7       ;push this shit into stack
 
         push            r12
 
@@ -72,7 +72,7 @@ _in:
 ;Ret  : rbx = 10^(rdx)
 ;===================================================
 pow10:
-        mov             rbx, 1          ;our answer
+        mov             rbx, 1                  ;our answer
 
 pow10Cicle:
         cmp             rdx, 0
@@ -95,20 +95,20 @@ pow10Ret:
 ;       rdx <- exponent: rax / 10^(rdi) = yourNumber
 ;===================================================
 _transformNumber:
-        xor             rax, rax            ;our number
-        xor             r10, r10            ;minus will be here.
+        xor             rax, rax                ;our number
+        xor             r10, r10                ;minus will be here.
 
-        mov             rdi, rsi            ;
-        add             rdi, rcx            ;pointer on the end of the number
-        dec             rdi                 ;
+        mov             rdi, rsi                ;
+        add             rdi, rcx                ;pointer on the end of the number
+        dec             rdi                     ;
 
-        xor             rdx, rdx            ;exponent
+        xor             rdx, rdx                ;exponent
 
 _transformCicle:
         mov             r11, rcx
 
-        xor             rbx, rbx            ;current symbol will be in bl
-        mov             bl , BYTE [rsi]     ;current symbol here
+        xor             rbx, rbx                ;current symbol will be in bl
+        mov             bl , BYTE [rsi]         ;current symbol here
 
 _checkMinus:
         cmp             bl , '-'
@@ -134,9 +134,9 @@ _tagDot:
         loop            _transformCicle
 
 _normalNumber:
-        sub             bl , '0'            ;to get number
-        imul            rax, 10             ;rax *= 10
-        add             rax, rbx            ;rax += bl
+        sub             bl , '0'                ;to get number
+        imul            rax, 10                 ;rax *= 10
+        add             rax, rbx                ;rax += bl
 
         inc             rsi
         mov             rcx, r11
@@ -210,12 +210,13 @@ _endHandling:
         add             rsp, 64
         jmp             _outRet
 
-newLine: db 0xA
+newLine:        db             `\n`
 
 _outRet:
 
         mov             rsi, newLine
         call            _outSymb
+
         ret
         
 
@@ -226,9 +227,9 @@ _outRet:
 ; Destroy: rax, rdi, rdx 
 ;====================================================
 _outSymb:
-        mov             rax, 1      ; write
-        mov             rdi, 1         ; stdout
-        mov             rdx, 1         ; length
+        mov             rax, 1                  ; write
+        mov             rdi, 1                  ; stdout
+        mov             rdx, 1                  ; length
         syscall
                         
         ret

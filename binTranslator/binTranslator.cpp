@@ -31,7 +31,6 @@ void BinaryTranslation (const char* input, const char* elfOutput) {
     HandleInputByteCode (inputFile, JITBuffer);
     pHeader.P_FILES = pHeader.P_MEMSZ = 0x80 + programSize;
     PrintELFHeader      (JITBuffer);
-    
 
     fclose (elfFile);
     fclose (inputFile);
@@ -60,13 +59,12 @@ void HandleInputByteCode (FILE* input, char* JITBuffer) {
 
     char* bufferPointerForFree = _myByteCode._byteCode;
 
-    BytePassage (JITBuffer, 1, _myByteCode);
+    BytePassage (JITBuffer, FirstPassage, _myByteCode);
     LabelSort ();
     labelNum--;
 
-    BytePassage (JITBuffer, 2, _myByteCode);
-
-    BytePassage (JITBuffer, 3, _myByteCode);
+    BytePassage (JITBuffer, SecondPassage, _myByteCode);
+    BytePassage (JITBuffer, ThirdPassage , _myByteCode);
 
     free (bufferPointerForFree);
 
@@ -154,24 +152,16 @@ void BytePassage (char* JITBuffer, size_t passageNum, InputByteCode _myByteCode)
                 ImplementJmp (JITBuffer, passageNum, &_myByteCode, JNE);
                 break;
             }
-            default:
+            default: {
                 PRINT_ERR ("Undefined command");
                 printf ("%c = %d\n", *(_myByteCode._byteCode), *(_myByteCode._byteCode));
                 return;
+            }
 
         }
 
         _myByteCode._size--;
 
-    }
-
-    if (passageNum == 2 && labelNum >= 0) {
-            if ((firstInputSize - _myByteCode._size + 1) == labelTable [labelNum].inputVal) {
-                
-                labelTable [labelNum].outputVal = programSize - STDLIB_SIZE;
-                labelNum--;
-
-            }
     }
 
 }
@@ -274,6 +264,12 @@ size_t GetSizeOfFile (FILE* input) {
 FILE* CreateELFFile (const char* elfOutput) {
 
     FILE* output = fopen (elfOutput, "wb");
+    if (!output) {
+
+        PRINT_ERR ("Can't open FILE* output");
+        return nullptr;
+
+    }
 
     return output;
 
@@ -336,12 +332,23 @@ void ImplementMath (char* JITBuffer, int mathNum) {
 
 }
 
+void ReadModeFromInputBuffer (char* mode, InputByteCode* _byteCodeStruct) {
+
+    mode [0]    = *((inputBuffer)++);
+    mode [1]    = *((inputBuffer)++);
+    mode [2]    = *((inputBuffer)++);
+    inputSize  -= 3;
+
+}
+
+#define modeNum mode [2]
+#define modeReg mode [1]
+#define modeMem mode [0]
+
 void ImplementPop (char* JITBuffer, InputByteCode* _byteCodeStruct) {
 
-    char modeMem = *((inputBuffer)++);
-    char modeReg = *((inputBuffer)++);
-    char modeNum = *((inputBuffer)++);
-    inputSize -= 3;
+    char mode [3] = "";
+    ReadModeFromInputBuffer (mode, _byteCodeStruct);
 
     if (modeNum == 0) {
 
@@ -349,7 +356,12 @@ void ImplementPop (char* JITBuffer, InputByteCode* _byteCodeStruct) {
 
             if (modeMem == 1) {
 
+                GET_XMM_FROM_STACK  (7)
+                char regNum = *(inputBuffer++);
+                PUSH_XMM_INTO_STACK (regNum)
+                inputSize--;
 
+                POP_REGULAR
 
             } else {
 
@@ -362,15 +374,7 @@ void ImplementPop (char* JITBuffer, InputByteCode* _byteCodeStruct) {
 
         } else {
 
-            if (modeMem == 1) {
-
-
-
-            } else {
-
-                POP_REGULAR
-
-            }
+            POP_REGULAR
 
         }
 
@@ -380,22 +384,12 @@ void ImplementPop (char* JITBuffer, InputByteCode* _byteCodeStruct) {
 
 void ImplementPush (char* JITBuffer, InputByteCode* _byteCodeStruct) {
 
-    char modeMem = *((inputBuffer)++);
-    char modeReg = *((inputBuffer)++);
-    char modeNum = *((inputBuffer)++);
-    inputSize -= 3;
+    char mode [3] = "";
+    ReadModeFromInputBuffer (mode, _byteCodeStruct);
 
     if (modeNum == 1) {
 
-        if (modeReg == 1) {
-
-            
-
-        } else {
-
-            PUSH_NUMBER
-
-        }
+        PUSH_NUMBER
 
     } else {
 
@@ -403,7 +397,9 @@ void ImplementPush (char* JITBuffer, InputByteCode* _byteCodeStruct) {
 
             if (modeMem == 1) {
 
-
+                SUB_RSP_FOR_XMM
+                PUSH_XMM_INTO_STACK (*((inputBuffer)++))
+                inputSize--;
 
             } else {
 
@@ -413,23 +409,20 @@ void ImplementPush (char* JITBuffer, InputByteCode* _byteCodeStruct) {
 
             }
 
-        } else {
-
-
-
         }
 
     }
 
 }
 
+#undef modeMem
+#undef modeReg
+#undef modeNum
+
 void ImplementJmp (char* JITBuffer, size_t passageNum, InputByteCode* _byteCodeStruct, int jmpNum) {
 
     IMPLEMENT_JMP_CONDITION
-
     PutCommandsIntoByteCode (JITBuffer, 1, jmpNum);
-
-    printf ("1) Program size %zu\n", programSize - STDLIB_SIZE);
 
     if (passageNum == 1 || passageNum == 3) {
 
@@ -480,14 +473,14 @@ void ImplementJmp (char* JITBuffer, size_t passageNum, InputByteCode* _byteCodeS
 
         }
 
-        PutCommandsIntoByteCode (JITBuffer, 4, 0x0, 0x0, 0x0, 0x0);
+        FILL_SPACE_ADDRESS
 
     } else if (passageNum == 2) {
 
         inputBuffer += sizeof (size_t);
         inputSize   -= sizeof (size_t);
 
-        PutCommandsIntoByteCode (JITBuffer, 4, 0x0, 0x0, 0x0, 0x0);
+        FILL_SPACE_ADDRESS
 
     } else {
 
@@ -498,17 +491,17 @@ void ImplementJmp (char* JITBuffer, size_t passageNum, InputByteCode* _byteCodeS
 
 }
 
-void LabelSort () {
+void LabelSort () { 
 
-    for (size_t i = 0; i < labelNum; i++) {
+    for (size_t curLabel = 0; curLabel < labelNum; curLabel++) {
 
-        for (size_t j = i; j < labelNum; j++) {
+        for (size_t nextLabel = curLabel; nextLabel < labelNum; nextLabel++) {
 
-            if (labelTable [i].inputVal < labelTable [j].inputVal) {
+            if (labelTable [curLabel].inputVal < labelTable [nextLabel].inputVal) {
 
-                size_t temp = labelTable [i].inputVal;
-                labelTable [i].inputVal = labelTable [j].inputVal;
-                labelTable [j].inputVal = temp;
+                size_t temp = labelTable [curLabel].inputVal;
+                labelTable [curLabel].inputVal = labelTable [nextLabel].inputVal;
+                labelTable [nextLabel].inputVal = temp;
 
             }
 
@@ -517,5 +510,3 @@ void LabelSort () {
     }
 
 }
-
-
