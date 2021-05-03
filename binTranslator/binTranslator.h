@@ -105,6 +105,17 @@ FILE*           CreateELFFile           (const char* elfOutput);
 void            IncludeStdLib           (char* JITBuffer);
 void            PrintELFHeader          (char* buffer);
 
+//========================TRANSLATE TECH FUNCTIONS=========================
+void            SubRspForXMM            (char* JITBuffer);
+void            PushXMMIntoStack        (char* JITBuffer, unsigned char xmmPostfix);
+void            GetXMMFromStack         (char* JITBuffer, unsigned char xmmPostfix);
+void            PushNumber              (char* JITBuffer, InputByteCode* _byteCodeStruct);
+void            PopRegular              (char* JITBuffer);
+void            PutCondition            (char* JITBuffer);
+void            PutRet                  (char* JITBuffer);
+void            ImplementJmpCondition   (char* JITBuffer, int jmpNum);
+void            FillSpaceAddress        (char* JITBuffer);
+
 //==================================OTHER==================================
 size_t          GetSizeOfFile           (FILE* input);
 void            LabelSort               ();

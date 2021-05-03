@@ -311,8 +311,8 @@ void CallForStdLib (char* JITBuffer, int jmpTableNum) {
 
 void ImplementMath (char* JITBuffer, int mathNum) {
 
-    GET_XMM_FROM_STACK (7)
-    POP_REGULAR
+    GetXMMFromStack (JITBuffer, 7);
+    PopRegular (JITBuffer);
     
     if (mathNum == SQRT) {
 
@@ -320,15 +320,15 @@ void ImplementMath (char* JITBuffer, int mathNum) {
 
     } else {
 
-        GET_XMM_FROM_STACK (6)
-        POP_REGULAR
+        GetXMMFromStack (JITBuffer, 6);
+        PopRegular (JITBuffer);
 
         PutCommandsIntoByteCode (JITBuffer, 5, 0xF2, 0x0F, mathNum, 0xFE, 0x48); 
 
     }
     
-    SUB_RSP_FOR_XMM
-    PUSH_XMM_INTO_STACK (7)
+    SubRspForXMM (JITBuffer);
+    PushXMMIntoStack (JITBuffer, 7);
 
 }
 
@@ -356,25 +356,25 @@ void ImplementPop (char* JITBuffer, InputByteCode* _byteCodeStruct) {
 
             if (modeMem == 1) {
 
-                GET_XMM_FROM_STACK  (7)
+                GetXMMFromStack (JITBuffer, 7);
                 char regNum = *(inputBuffer++);
-                PUSH_XMM_INTO_STACK (regNum)
+                PushXMMIntoStack (JITBuffer, regNum);
                 inputSize--;
 
-                POP_REGULAR
+                PopRegular (JITBuffer);
 
             } else {
 
-                GET_XMM_FROM_STACK (*((inputBuffer)++))
+                GetXMMFromStack (JITBuffer, *((inputBuffer)++));
                 inputSize--;
 
-                POP_REGULAR
+                PopRegular (JITBuffer);
 
             }
 
         } else {
 
-            POP_REGULAR
+            PopRegular (JITBuffer);
 
         }
 
@@ -389,7 +389,7 @@ void ImplementPush (char* JITBuffer, InputByteCode* _byteCodeStruct) {
 
     if (modeNum == 1) {
 
-        PUSH_NUMBER
+        PushNumber (JITBuffer, _byteCodeStruct);
 
     } else {
 
@@ -397,14 +397,14 @@ void ImplementPush (char* JITBuffer, InputByteCode* _byteCodeStruct) {
 
             if (modeMem == 1) {
 
-                SUB_RSP_FOR_XMM
-                PUSH_XMM_INTO_STACK (*((inputBuffer)++))
+                SubRspForXMM (JITBuffer);
+                PushXMMIntoStack (JITBuffer, *((inputBuffer)++));
                 inputSize--;
 
             } else {
 
-                SUB_RSP_FOR_XMM
-                PUSH_XMM_INTO_STACK (*((inputBuffer)++))
+                SubRspForXMM (JITBuffer);
+                PushXMMIntoStack (JITBuffer, *((inputBuffer)++));
                 inputSize--;
 
             }
@@ -421,7 +421,7 @@ void ImplementPush (char* JITBuffer, InputByteCode* _byteCodeStruct) {
 
 void ImplementJmp (char* JITBuffer, size_t passageNum, InputByteCode* _byteCodeStruct, int jmpNum) {
 
-    IMPLEMENT_JMP_CONDITION
+    ImplementJmpCondition (JITBuffer, jmpNum);
     PutCommandsIntoByteCode (JITBuffer, 1, jmpNum);
 
     if (passageNum == 1 || passageNum == 3) {
@@ -473,14 +473,14 @@ void ImplementJmp (char* JITBuffer, size_t passageNum, InputByteCode* _byteCodeS
 
         }
 
-        FILL_SPACE_ADDRESS
+        FillSpaceAddress (JITBuffer);
 
     } else if (passageNum == 2) {
 
         inputBuffer += sizeof (size_t);
         inputSize   -= sizeof (size_t);
 
-        FILL_SPACE_ADDRESS
+        FillSpaceAddress (JITBuffer);
 
     } else {
 
@@ -491,22 +491,107 @@ void ImplementJmp (char* JITBuffer, size_t passageNum, InputByteCode* _byteCodeS
 
 }
 
-void LabelSort () { 
+int LabelCmp (const void* firstL, const void* secondL) {
 
-    for (size_t curLabel = 0; curLabel < labelNum; curLabel++) {
+    Label* firstLabel  = (Label*)firstL;
+    Label* secondLabel = (Label*)secondL; 
 
-        for (size_t nextLabel = curLabel; nextLabel < labelNum; nextLabel++) {
+    if (firstLabel->inputVal < secondLabel->inputVal)
+        return 1;
+    else if (firstLabel->inputVal > secondLabel->inputVal)
+        return -1;
+    else 
+        return 0;
 
-            if (labelTable [curLabel].inputVal < labelTable [nextLabel].inputVal) {
+}
 
-                size_t temp = labelTable [curLabel].inputVal;
-                labelTable [curLabel].inputVal = labelTable [nextLabel].inputVal;
-                labelTable [nextLabel].inputVal = temp;
+void LabelSort () {
 
-            }
+    qsort (labelTable, labelNum, sizeof (Label), LabelCmp);
 
-        }
+}
 
-    }
+//=============================================================================
+//========================TRANSLATE TECH FUNCTIONS=============================
+
+void SubRspForXMM (char* JITBuffer) {
+
+    PutCommandsIntoByteCode (JITBuffer, 4, 0x48, 0x83, 0xEC, 0x08);
+
+}
+
+void PushXMMIntoStack (char* JITBuffer, unsigned char xmmPostfix) {
+
+    PutCommandsIntoByteCode (JITBuffer, 5, 0xF2, 0x0F, 0x11, 0x04 + 8 * xmmPostfix, 0x24);
+
+}
+
+void GetXMMFromStack (char* JITBuffer, unsigned char xmmPostfix) {
+
+    PutCommandsIntoByteCode (JITBuffer, 5, 0xF2, 0x0F, 0x10, 0x04 + 8 * xmmPostfix, 0x24);
+
+}
+
+void PushNumber (char* JITBuffer, InputByteCode* _byteCodeStruct) {
+
+    PutCommandsIntoByteCode (JITBuffer, JMP_IN_QWORD);                          
+    size_t labelBeforeNum = programSize + PROGRAM_START + 0x80;                 
+    for (size_t byteNum = 0; byteNum < sizeof (double); byteNum++) {            
+                                                                                
+        JITBuffer [programSize++] = inputBuffer [byteNum];                      
+                                                                                
+    }                                                                           
+                                                                                
+    inputBuffer += sizeof (double);                                             
+    inputSize   -= sizeof (double);                                             
+                                                                                
+    /*push [rsp], xmm7*/                                                        
+    PutCommandsIntoByteCode (JITBuffer, 5, 0xF2, 0x0F, 0x10, 0x3C, 0x25);       
+    *(size_t*)(JITBuffer + programSize) = labelBeforeNum;                       
+    programSize += 4;       
+
+    SubRspForXMM (JITBuffer);                                                             
+    PushXMMIntoStack (JITBuffer, 7);    
+
+}
+
+void PopRegular (char* JITBuffer) {
+
+    PutCommandsIntoByteCode (JITBuffer, 4, 0x48, 0x83, 0xC4, 0x08); //rsp += 8
+
+}
+
+void PutCondition (char* JITBuffer) {
+
+    PutCommandsIntoByteCode (JITBuffer, 4, 0x66, 0x0F, 0x2F, 0xF7);
+
+}
+
+void PutRet (char* JITBuffer) {
+
+    PutCommandsIntoByteCode (JITBuffer, 1, 0xC3);
+
+}
+
+void ImplementJmpCondition (char* JITBuffer, int jmpNum) {
+
+    if (jmpNum != JMP && jmpNum != CALL) {                                      
+                                                                                                                    
+        GetXMMFromStack (JITBuffer, 6);                                                  
+        PopRegular (JITBuffer);  
+
+        GetXMMFromStack (JITBuffer, 7);
+        PopRegular (JITBuffer);
+
+        PutCondition (JITBuffer);                                                          
+        PutCommandsIntoByteCode (JITBuffer, 1, 0x0F); //xmm7                          
+                                                                                
+    } 
+
+}
+
+void FillSpaceAddress (char* JITBuffer) {
+
+    PutCommandsIntoByteCode (JITBuffer, 4, 0x00, 0x00, 0x00, 0x00);
 
 }
