@@ -79,6 +79,8 @@ const   size_t PROGRAM_START    = 0x00400000;
 const   size_t MAX_LABEL_COUNT  = 100;
 static  size_t STDLIB_SIZE      = 0;
 
+static size_t  programSize   = 0;
+
 int             HandleInputMode         (int argc, char* argv []);
 
 //=============================KING - FUNCTION==============================
@@ -119,3 +121,13 @@ void            FillSpaceAddress        (char* JITBuffer);
 //==================================OTHER==================================
 size_t          GetSizeOfFile           (FILE* input);
 void            LabelSort               ();
+
+//===============================OPTIMIZATOR===============================
+enum OptimizationLevel {
+
+    O0,
+    O1,
+    O2
+
+};
+bool            CallOptimizator         (char* JITBuffer, InputByteCode* _byteCodeStruct, int OLvl);
