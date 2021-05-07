@@ -5,8 +5,7 @@
 ProgramHeader   pHeader                         = {};
 Label           labelTable [MAX_LABEL_COUNT]    = {};
 
-static int      labelNum      = 0;
-static size_t   programSize   = 0;
+static int      labelNum        = 0;
 
 void BinaryTranslation (const char* input, const char* elfOutput) {
 
@@ -29,7 +28,7 @@ void BinaryTranslation (const char* input, const char* elfOutput) {
     }
     
     HandleInputByteCode (inputFile, JITBuffer);
-    pHeader.P_FILES = pHeader.P_MEMSZ = 0x80 + programSize;
+    pHeader.P_FILES = pHeader.P_MEMSZ = 0x80 + PROGRAM_SIZE;
     PrintELFHeader      (JITBuffer);
 
     fclose (elfFile);
@@ -73,7 +72,7 @@ void HandleInputByteCode (FILE* input, char* JITBuffer) {
 void BytePassage (char* JITBuffer, size_t passageNum, InputByteCode _myByteCode) {
 
     size_t firstInputSize   = _myByteCode._size;
-    programSize             = STDLIB_SIZE;
+    PROGRAM_SIZE             = STDLIB_SIZE;
     
     while (_myByteCode._size != 0) {
 
@@ -81,7 +80,7 @@ void BytePassage (char* JITBuffer, size_t passageNum, InputByteCode _myByteCode)
 
             if ((firstInputSize - _myByteCode._size + 1) == labelTable [labelNum].inputVal) {
                 
-                labelTable [labelNum].outputVal = programSize - STDLIB_SIZE;
+                labelTable [labelNum].outputVal = PROGRAM_SIZE - STDLIB_SIZE;
                 labelNum--;
 
             }
@@ -173,7 +172,7 @@ void PutCommandsIntoByteCode (char* JITBuffer, size_t byteCount, ...) {
 
     for (size_t byte = 0; byte < byteCount; byte++) {
 
-        JITBuffer [programSize++] = (char)(va_arg (byteList, int));
+        JITBuffer [PROGRAM_SIZE++] = (char)(va_arg (byteList, int));
 
     }
 
@@ -211,7 +210,7 @@ void IncludeStdLib (char* JITBuffer) {
 
     fread (JITBuffer, sizeOfStdLib, 1, stdLib);
 
-    programSize += sizeOfStdLib;
+    PROGRAM_SIZE += sizeOfStdLib;
 
     free (stdLibBinaryCode);
     fclose (stdLib);
@@ -290,7 +289,7 @@ void PrintELFHeader (char* buffer) {
     fwrite (&elfHeader, sizeof (elfHeader), 1              , output);
     fwrite (&pHeader  , sizeof (pHeader)  , 1              , output);
 
-    fwrite (buffer    , sizeof (char)     , programSize    , output);
+    fwrite (buffer    , sizeof (char)     , PROGRAM_SIZE    , output);
 
     fclose (output);
 
@@ -303,9 +302,9 @@ void CallForStdLib (char* JITBuffer, int jmpTableNum) {
 
     PutCommandsIntoByteCode (JITBuffer, CALL_BYTE_CODE);
     
-    int adress = jmpTableNum - programSize;
-    *(int*)(JITBuffer + programSize) = adress;
-    programSize += 4;
+    int adress = jmpTableNum - PROGRAM_SIZE;
+    *(int*)(JITBuffer + PROGRAM_SIZE) = adress;
+    PROGRAM_SIZE += 4;
 
 }
 
@@ -347,6 +346,9 @@ void ReadModeFromInputBuffer (char* mode, InputByteCode* _byteCodeStruct) {
 
 void ImplementPop (char* JITBuffer, InputByteCode* _byteCodeStruct) {
 
+    if (CallOptimizator (JITBuffer, _byteCodeStruct, O1))
+        return;
+
     char mode [3] = "";
     ReadModeFromInputBuffer (mode, _byteCodeStruct);
 
@@ -384,6 +386,9 @@ void ImplementPop (char* JITBuffer, InputByteCode* _byteCodeStruct) {
 
 void ImplementPush (char* JITBuffer, InputByteCode* _byteCodeStruct) {
 
+    if (CallOptimizator (JITBuffer, _byteCodeStruct, O1))
+        return;
+
     char mode [3] = "";
     ReadModeFromInputBuffer (mode, _byteCodeStruct);
 
@@ -415,10 +420,6 @@ void ImplementPush (char* JITBuffer, InputByteCode* _byteCodeStruct) {
 
 }
 
-#undef modeMem
-#undef modeReg
-#undef modeNum
-
 void ImplementJmp (char* JITBuffer, size_t passageNum, InputByteCode* _byteCodeStruct, int jmpNum) {
 
     ImplementJmpCondition (JITBuffer, jmpNum);
@@ -443,9 +444,9 @@ void ImplementJmp (char* JITBuffer, size_t passageNum, InputByteCode* _byteCodeS
 
                 if (number == (labelTable [labelCount]).inputVal) {
                     
-                    int adress = (labelTable [labelCount]).outputVal - programSize - 0x4 + STDLIB_SIZE;
-                    *(int*)(JITBuffer + programSize) = adress;
-                    programSize += 4;
+                    int adress = (labelTable [labelCount]).outputVal - PROGRAM_SIZE - 0x4 + STDLIB_SIZE;
+                    *(int*)(JITBuffer + PROGRAM_SIZE) = adress;
+                    PROGRAM_SIZE += 4;
 
                     return;
 
@@ -528,27 +529,35 @@ void PushXMMIntoStack (char* JITBuffer, unsigned char xmmPostfix) {
 
 void GetXMMFromStack (char* JITBuffer, unsigned char xmmPostfix) {
 
-    PutCommandsIntoByteCode (JITBuffer, 5, 0xF2, 0x0F, 0x10, 0x04 + 8 * xmmPostfix, 0x24);
+    PutCommandsIntoByteCode (JITBuffer, 5, 0xF2, 0x0F, 0x10, 0x04 + 8 * xmmPostfix, 0x24);  //movsd xmm*, [rsp]
+
+}
+
+size_t PushNumberLikeBytes (char* JITBuffer, InputByteCode* _byteCodeStruct) {
+
+    PutCommandsIntoByteCode (JITBuffer, JMP_IN_QWORD);                          
+    size_t labelBeforeNum = PROGRAM_SIZE + PROGRAM_START + 0x80;                 
+    for (size_t byteNum = 0; byteNum < sizeof (double); byteNum++) {            
+                                                                                
+        JITBuffer [PROGRAM_SIZE++] = inputBuffer [byteNum];                      
+                                                                                
+    }                                                                           
+                                                                                
+    inputBuffer += sizeof (double);                                             
+    inputSize   -= sizeof (double);
+
+    return labelBeforeNum;
 
 }
 
 void PushNumber (char* JITBuffer, InputByteCode* _byteCodeStruct) {
 
-    PutCommandsIntoByteCode (JITBuffer, JMP_IN_QWORD);                          
-    size_t labelBeforeNum = programSize + PROGRAM_START + 0x80;                 
-    for (size_t byteNum = 0; byteNum < sizeof (double); byteNum++) {            
-                                                                                
-        JITBuffer [programSize++] = inputBuffer [byteNum];                      
-                                                                                
-    }                                                                           
-                                                                                
-    inputBuffer += sizeof (double);                                             
-    inputSize   -= sizeof (double);                                             
+    size_t labelBeforeNum = PushNumberLikeBytes (JITBuffer, _byteCodeStruct);                              
                                                                                 
     /*push [rsp], xmm7*/                                                        
     PutCommandsIntoByteCode (JITBuffer, 5, 0xF2, 0x0F, 0x10, 0x3C, 0x25);       
-    *(size_t*)(JITBuffer + programSize) = labelBeforeNum;                       
-    programSize += 4;       
+    *(size_t*)(JITBuffer + PROGRAM_SIZE) = labelBeforeNum;                       
+    PROGRAM_SIZE += 4;       
 
     SubRspForXMM (JITBuffer);                                                             
     PushXMMIntoStack (JITBuffer, 7);    
@@ -593,5 +602,227 @@ void ImplementJmpCondition (char* JITBuffer, int jmpNum) {
 void FillSpaceAddress (char* JITBuffer) {
 
     PutCommandsIntoByteCode (JITBuffer, 4, 0x00, 0x00, 0x00, 0x00);
+
+}
+
+//=============================================================================
+//============================= Optimizator ===================================
+
+char ReadCharFromInputByteCode (InputByteCode* _byteCodeStruct) {
+
+    inputSize--;
+    return *(inputBuffer++);
+
+}
+
+bool CheckMode (char* mode, char num, char reg, char mem) {
+
+    if (modeNum == num &&
+        modeReg == reg &&
+        modeMem == mem) {
+
+        return true;
+    
+    }
+
+    return false;
+
+}
+
+void SkipNumberInByteCode (InputByteCode* _byteCodeStruct) {
+
+    int doubleSize  = sizeof (double);
+
+    inputBuffer     += doubleSize;
+    inputSize       -= doubleSize;
+
+}
+
+void ReturnSkippedBytes (InputByteCode* _byteCodeStruct, size_t skippedBytes) {
+
+    inputBuffer -= skippedBytes;
+    inputSize   += skippedBytes;
+
+}
+
+bool PushPopOptimization (char* JITBuffer, InputByteCode* _byteCodeStruct) {
+
+    size_t skippedBytes = 0;
+
+    char mode [3] = "";
+    ReadModeFromInputBuffer (mode, _byteCodeStruct);
+    skippedBytes += 3;
+
+    if (CheckMode (mode, 1, 0, 0)) {                                    
+
+        SkipNumberInByteCode (_byteCodeStruct);                         //skip number
+        skippedBytes += sizeof (double);
+
+    } else if (CheckMode (mode, 0, 1, 0)) {
+
+        ReadCharFromInputByteCode (_byteCodeStruct);                    //skip register
+        skippedBytes++;
+
+    }
+
+    skippedBytes++;
+    if (ReadCharFromInputByteCode (_byteCodeStruct) == pop) {
+
+        ReadModeFromInputBuffer (mode, _byteCodeStruct);
+        skippedBytes += 3;
+
+        if (CheckMode (mode, 0, 0, 0)) {                                 //pop
+
+            return true;
+
+        } else
+            ReturnSkippedBytes (_byteCodeStruct, skippedBytes);
+
+    } else
+        ReturnSkippedBytes (_byteCodeStruct, skippedBytes);
+
+    return false;
+
+}
+
+bool PushNumPopRegOptimization (char* JITBuffer, InputByteCode* _byteCodeStruct) {
+
+    size_t skippedBytes = 0;
+
+    char mode [3] = "";
+    ReadModeFromInputBuffer (mode, _byteCodeStruct);
+    skippedBytes += 3;
+
+    size_t labelBeforeNumber = 0;
+
+    if (CheckMode (mode, 1, 0, 0)) {                                    //push num
+
+        labelBeforeNumber = PushNumberLikeBytes (JITBuffer, _byteCodeStruct);      
+        skippedBytes += sizeof (double);
+    
+    } else {
+
+        ReturnSkippedBytes (_byteCodeStruct, skippedBytes);
+        return false;
+
+    }
+
+    skippedBytes++;
+    if (ReadCharFromInputByteCode (_byteCodeStruct) == pop) {
+
+        ReadModeFromInputBuffer (mode, _byteCodeStruct);
+        skippedBytes += 3;
+
+        if (CheckMode (mode, 0, 1, 0)) {                                 //pop reg
+
+            char xmmPostfix = ReadCharFromInputByteCode (_byteCodeStruct);
+            PutCommandsIntoByteCode (JITBuffer, 5, 0xF2, 0x0F, 0x10, 0x4 + 8 * xmmPostfix, 0x25);
+
+            *(size_t*)(JITBuffer + PROGRAM_SIZE) = labelBeforeNumber;                       
+            PROGRAM_SIZE += 4;
+
+            return true;
+
+        } else {
+
+            ReturnSkippedBytes (_byteCodeStruct, skippedBytes);
+            PROGRAM_SIZE -= sizeof (double);
+
+            return false;
+
+        }
+
+    } else {
+
+        ReturnSkippedBytes (_byteCodeStruct, skippedBytes);
+        PROGRAM_SIZE -= sizeof (double) + 2;
+        return false;
+
+    }
+
+}
+
+bool PushOptimizator (char* JITBuffer, InputByteCode* _byteCodeStruct) {
+
+    if (PushPopOptimization (JITBuffer, _byteCodeStruct))
+        return true;
+
+    if (PushNumPopRegOptimization (JITBuffer, _byteCodeStruct))
+        return true;
+
+    return false;    
+
+}
+
+bool PopOptimizator (char* JITBuffer, InputByteCode* _byteCodeStruct) {
+
+    char mode [3] = "";
+    ReadModeFromInputBuffer (mode, _byteCodeStruct);
+
+    if (CheckMode (mode, 0, 1, 0)) {
+
+        char popRegNum = ReadCharFromInputByteCode (_byteCodeStruct);                //skip name of register
+        
+        if (ReadCharFromInputByteCode (_byteCodeStruct) == push) {
+
+            ReadModeFromInputBuffer (mode, _byteCodeStruct);
+            if (CheckMode (mode, 0, 1, 0)) {
+                
+                char pushRegNum = ReadCharFromInputByteCode (_byteCodeStruct);
+
+                if (pushRegNum == popRegNum) {
+                    
+                    GetXMMFromStack (JITBuffer, popRegNum);
+                    return true;
+
+                } else {
+
+                    inputBuffer -= 9;
+                    inputSize   += 9;
+
+                }
+
+            } else {
+
+                inputBuffer -= 8;
+                inputSize   += 8;
+                
+            }
+
+        } else {
+
+            inputBuffer -= 5;
+            inputSize   += 5;
+            
+        }
+
+    } else {
+
+        inputBuffer -= 3;
+        inputSize   += 3;
+
+    }
+
+    return false;
+
+}
+
+bool CallOptimizator (char* JITBuffer, InputByteCode* _byteCodeStruct, int OLvl) {
+
+    if (OLvl == 1) {
+
+        if (*(inputBuffer - 1) == push)
+            return PushOptimizator (JITBuffer, _byteCodeStruct);    
+        else if (*(inputBuffer - 1) == pop)
+            return PopOptimizator  (JITBuffer, _byteCodeStruct);
+
+    } else {
+
+        printf ("No any optimization!\n");
+        return false;
+
+    }
+
+    return false;
 
 }

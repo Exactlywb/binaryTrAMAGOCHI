@@ -74,48 +74,66 @@ enum PassageNums {
 
 };
 
+enum OptimizationLevel {
+
+    O0,
+    O1
+
+};
+
 const   size_t MAX_CODE_SIZE    = 0x00010000;
 const   size_t PROGRAM_START    = 0x00400000;
 const   size_t MAX_LABEL_COUNT  = 100;
 static  size_t STDLIB_SIZE      = 0;
 
-int             HandleInputMode         (int argc, char* argv []);
+static size_t  PROGRAM_SIZE      = 0;
+
+int             HandleInputMode             (int argc, char* argv []);
 
 //=============================KING - FUNCTION==============================
-void            BinaryTranslation       (const char* input, const char* elfOutput);
+void            BinaryTranslation           (const char* input, const char* elfOutput);
 
 //=================================PARSING==================================
-void            ReadInputByteCode       (FILE* input, InputByteCode* _byteCodeStruct);
-void            BytePassage             (char* JITBuffer, size_t passageNum, InputByteCode _myByteCode);
+void            ReadInputByteCode           (FILE* input, InputByteCode* _byteCodeStruct);
+void            BytePassage                 (char* JITBuffer, size_t passageNum, InputByteCode _myByteCode);
 
 
 //========================TRANSLATE INTO BYTE CODE==========================
-void            HandleInputByteCode     (FILE* input, char* JITBuffer);
+void            HandleInputByteCode         (FILE* input, char* JITBuffer);
 
-void            PutCommandsIntoByteCode (char* JITBuffer, size_t countBytes, ...);
+void            PutCommandsIntoByteCode     (char* JITBuffer, size_t countBytes, ...);
 
-void            CallForStdLib           (char* JITBuffer, int jmpNum);
-void            ImplementMath           (char* JITBuffer, int mathNum);
-void            ImplementJmp            (char* JITBuffer, size_t passageNum, InputByteCode* _byteCodeStruct, int jmpNum);
-void            ImplementPush           (char* JITBuffer, InputByteCode* _byteCodeStruct);
-void            ImplementPop            (char* JITBuffer, InputByteCode* _byteCodeStruct);
+void            CallForStdLib               (char* JITBuffer, int jmpNum);
+void            ImplementMath               (char* JITBuffer, int mathNum);
+void            ImplementJmp                (char* JITBuffer, size_t passageNum, InputByteCode* _byteCodeStruct, int jmpNum);
+void            ImplementPush               (char* JITBuffer, InputByteCode* _byteCodeStruct);
+void            ImplementPop                (char* JITBuffer, InputByteCode* _byteCodeStruct);
 
 //=======================BUILDING EXECUTABLE FILE==========================
-FILE*           CreateELFFile           (const char* elfOutput);
-void            IncludeStdLib           (char* JITBuffer);
-void            PrintELFHeader          (char* buffer);
+FILE*           CreateELFFile               (const char* elfOutput);
+void            IncludeStdLib               (char* JITBuffer);
+void            PrintELFHeader              (char* buffer);
 
 //========================TRANSLATE TECH FUNCTIONS=========================
-void            SubRspForXMM            (char* JITBuffer);
-void            PushXMMIntoStack        (char* JITBuffer, unsigned char xmmPostfix);
-void            GetXMMFromStack         (char* JITBuffer, unsigned char xmmPostfix);
-void            PushNumber              (char* JITBuffer, InputByteCode* _byteCodeStruct);
-void            PopRegular              (char* JITBuffer);
-void            PutCondition            (char* JITBuffer);
-void            PutRet                  (char* JITBuffer);
-void            ImplementJmpCondition   (char* JITBuffer, int jmpNum);
-void            FillSpaceAddress        (char* JITBuffer);
+void            SubRspForXMM                (char* JITBuffer);
+void            PushXMMIntoStack            (char* JITBuffer, unsigned char xmmPostfix);
+void            GetXMMFromStack             (char* JITBuffer, unsigned char xmmPostfix);
+void            PushNumber                  (char* JITBuffer, InputByteCode* _byteCodeStruct);
+void            PopRegular                  (char* JITBuffer);
+void            PutCondition                (char* JITBuffer);
+void            PutRet                      (char* JITBuffer);
+void            ImplementJmpCondition       (char* JITBuffer, int jmpNum);
+void            FillSpaceAddress            (char* JITBuffer);
 
 //==================================OTHER==================================
-size_t          GetSizeOfFile           (FILE* input);
-void            LabelSort               ();
+size_t          GetSizeOfFile               (FILE* input);
+void            LabelSort                   ();
+bool            CheckMode                   (char* mode, char num, char reg, char mem);
+char            ReadCharFromInputByteCode   (InputByteCode* _byteCodeStruct);
+void            SkipNumberInByteCode        (InputByteCode* _byteCodeStruct);
+
+//===============================OPTIMIZATOR===============================
+bool            CallOptimizator             (char* JITBuffer, InputByteCode* _byteCodeStruct, int OLvl);
+bool            PushOptimizator             (char* JITBuffer, InputByteCode* _byteCodeStruct);
+bool            PushNumPopRegOptimization   (char* JITBuffer, InputByteCode* _byteCodeStruct);
+bool            PushPopOptimization         (char* JITBuffer, InputByteCode* _byteCodeStruct);
