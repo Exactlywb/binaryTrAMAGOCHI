@@ -195,7 +195,7 @@ bool PushPopOptimization (char* JITBuffer, InputByteCode* _byteCodeStruct) {
 
 ## The conclusion
 
-The main goal we wanted to achive was the boost of executive [program](test/factorial.fr) run-time. Let's compare both run-times: after our CPU emulator and after the binary translator without the [optimization]():
+The main goal we wanted to achive was the boost of executive [program](test/factorial.fr) run-time, which count 10! ten thousand times in the CPU emulator and one million time in binaryTrAMAGOCHI. Let's compare both run-times: after our CPU emulator and after the binary translator without the [optimization]():
 
 <p align = "center">
     <img src = "READMEimg/EMULATORCPU.jpg" width = "400px">
@@ -205,7 +205,7 @@ The main goal we wanted to achive was the boost of executive [program](test/fact
     <img src = "READMEimg/BinaryTRNoOptimization.jpg" width = "400px">
 </p>
 
-As we can see, binaryTrAMAGOCHI is 46 times faster!
+As we can see, binaryTrAMAGOCHI is 4600 times faster!
 
 Now let's compare the run-time using the optimization we have implemented:
 
@@ -215,7 +215,7 @@ Now let's compare the run-time using the optimization we have implemented:
 
 As we can see our optimization gives us the boost of 11%!
 
-Finally, the program after processing with binary translator is **53 times faster** than after processing with CPU emulator.
+Finally, the program after processing with binary translator is **5300 times faster** than after processing with CPU emulator.
 
 <p align = "center">
     <img src = "READMEimg/meme.jpg" width = "400px">
