@@ -215,6 +215,8 @@ Now let's compare the run-time using the optimization we have implemented:
 
 As we can see our optimization gives us the boost of 11%!
 
+Finally, the program after processing with binary translator is **53 times faster** than after processing with CPU emulator.
+
 <p align = "center">
     <img src = "READMEimg/meme.jpg" width = "400px">
 </p>
