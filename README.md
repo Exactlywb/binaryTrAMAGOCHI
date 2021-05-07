@@ -1,5 +1,5 @@
 # binaryTrAMAGOCHI
-the binary translator which converts binary code after [my assembler](github.com/Exactlywb/assembler) into x86_64 binary code.
+The binary translator which converts binary code after [my assembler](github.com/Exactlywb/assembler) into x86_64 binary code.
 
 ## Background
 
