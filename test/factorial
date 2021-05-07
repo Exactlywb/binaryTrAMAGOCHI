@@ -17,6 +17,9 @@ pop rax     #answer
 
 :Factorial
 
+push 0
+pop
+
 push rcx
 push 10
 je Exit
@@ -40,3 +43,4 @@ push 1000000
 jne PrepareB4Factorial
 
 hlt
+

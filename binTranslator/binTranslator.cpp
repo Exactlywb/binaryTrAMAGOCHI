@@ -346,6 +346,9 @@ void ReadModeFromInputBuffer (char* mode, InputByteCode* _byteCodeStruct) {
 
 void ImplementPop (char* JITBuffer, InputByteCode* _byteCodeStruct) {
 
+    if (CallOptimizator (JITBuffer, _byteCodeStruct, O1))
+        return;
+
     char mode [3] = "";
     ReadModeFromInputBuffer (mode, _byteCodeStruct);
 
@@ -526,7 +529,7 @@ void PushXMMIntoStack (char* JITBuffer, unsigned char xmmPostfix) {
 
 void GetXMMFromStack (char* JITBuffer, unsigned char xmmPostfix) {
 
-    PutCommandsIntoByteCode (JITBuffer, 5, 0xF2, 0x0F, 0x10, 0x04 + 8 * xmmPostfix, 0x24);
+    PutCommandsIntoByteCode (JITBuffer, 5, 0xF2, 0x0F, 0x10, 0x04 + 8 * xmmPostfix, 0x24);  //movsd xmm*, [rsp]
 
 }
 
@@ -635,49 +638,48 @@ void SkipNumberInByteCode (InputByteCode* _byteCodeStruct) {
 
 }
 
+void ReturnSkippedBytes (InputByteCode* _byteCodeStruct, size_t skippedBytes) {
+
+    inputBuffer -= skippedBytes;
+    inputSize   += skippedBytes;
+
+}
+
 bool PushPopOptimization (char* JITBuffer, InputByteCode* _byteCodeStruct) {
+
+    size_t skippedBytes = 0;
 
     char mode [3] = "";
     ReadModeFromInputBuffer (mode, _byteCodeStruct);
+    skippedBytes += 3;
 
-    if (CheckMode (mode, 1, 0, 0)) { // push num
+    if (CheckMode (mode, 1, 0, 0)) {                                    
 
-        SkipNumberInByteCode (_byteCodeStruct);
+        SkipNumberInByteCode (_byteCodeStruct);                         //skip number
+        skippedBytes += sizeof (double);
 
-    } else {
+    } else if (CheckMode (mode, 0, 1, 0)) {
 
-        inputBuffer -= 3;
-        inputSize   += 3;
-
-        return false;
+        ReadCharFromInputByteCode (_byteCodeStruct);                    //skip register
+        skippedBytes++;
 
     }
 
+    skippedBytes++;
     if (ReadCharFromInputByteCode (_byteCodeStruct) == pop) {
 
         ReadModeFromInputBuffer (mode, _byteCodeStruct);
+        skippedBytes += 3;
 
-        if (CheckMode (mode, 0, 0, 0)) {                                 // pop
+        if (CheckMode (mode, 0, 0, 0)) {                                 //pop
 
             return true;
 
-        } else {
+        } else
+            ReturnSkippedBytes (_byteCodeStruct, skippedBytes);
 
-            inputBuffer -= sizeof (double) + 7;
-            inputSize   += sizeof (double) + 7;
-
-            return false;
-
-        }
-
-    } else {
-
-        inputBuffer -= sizeof (double) + 4;
-        inputSize   += sizeof (double) + 4;
-
-        return false;
-
-    }
+    } else
+        ReturnSkippedBytes (_byteCodeStruct, skippedBytes);
 
     return false;
 
@@ -685,27 +687,31 @@ bool PushPopOptimization (char* JITBuffer, InputByteCode* _byteCodeStruct) {
 
 bool PushNumPopRegOptimization (char* JITBuffer, InputByteCode* _byteCodeStruct) {
 
+    size_t skippedBytes = 0;
+
     char mode [3] = "";
     ReadModeFromInputBuffer (mode, _byteCodeStruct);
+    skippedBytes += 3;
 
     size_t labelBeforeNumber = 0;
 
-    if (CheckMode (mode, 1, 0, 0)) {                        //push num
+    if (CheckMode (mode, 1, 0, 0)) {                                    //push num
 
         labelBeforeNumber = PushNumberLikeBytes (JITBuffer, _byteCodeStruct);      
+        skippedBytes += sizeof (double);
     
     } else {
 
-        inputBuffer -= 3;
-        inputSize   += 3;
-
+        ReturnSkippedBytes (_byteCodeStruct, skippedBytes);
         return false;
 
     }
 
+    skippedBytes++;
     if (ReadCharFromInputByteCode (_byteCodeStruct) == pop) {
 
         ReadModeFromInputBuffer (mode, _byteCodeStruct);
+        skippedBytes += 3;
 
         if (CheckMode (mode, 0, 1, 0)) {                                 //pop reg
 
@@ -719,9 +725,8 @@ bool PushNumPopRegOptimization (char* JITBuffer, InputByteCode* _byteCodeStruct)
 
         } else {
 
-            inputBuffer  -= sizeof (double) + 7;
-            inputSize    += sizeof (double) + 7;
-            PROGRAM_SIZE -= sizeof (double) + 2;
+            ReturnSkippedBytes (_byteCodeStruct, skippedBytes);
+            PROGRAM_SIZE -= sizeof (double);
 
             return false;
 
@@ -729,9 +734,8 @@ bool PushNumPopRegOptimization (char* JITBuffer, InputByteCode* _byteCodeStruct)
 
     } else {
 
-        inputBuffer -= sizeof (double) + 4;
-        inputSize   += sizeof (double) + 4;
-
+        ReturnSkippedBytes (_byteCodeStruct, skippedBytes);
+        PROGRAM_SIZE -= sizeof (double) + 2;
         return false;
 
     }
@@ -750,18 +754,67 @@ bool PushOptimizator (char* JITBuffer, InputByteCode* _byteCodeStruct) {
 
 }
 
-bool CallOptimizator (char* JITBuffer, InputByteCode* _byteCodeStruct, int OLvl) {
+bool PopOptimizator (char* JITBuffer, InputByteCode* _byteCodeStruct) {
+
+    char mode [3] = "";
+    ReadModeFromInputBuffer (mode, _byteCodeStruct);
+
+    if (CheckMode (mode, 0, 1, 0)) {
+
+        char popRegNum = ReadCharFromInputByteCode (_byteCodeStruct);                //skip name of register
+        
+        if (ReadCharFromInputByteCode (_byteCodeStruct) == push) {
+
+            ReadModeFromInputBuffer (mode, _byteCodeStruct);
+            if (CheckMode (mode, 0, 1, 0)) {
+                
+                char pushRegNum = ReadCharFromInputByteCode (_byteCodeStruct);
+
+                if (pushRegNum == popRegNum) {
+                    
+                    GetXMMFromStack (JITBuffer, popRegNum);
+                    return true;
+
+                } else {
+
+                    inputBuffer -= 9;
+                    inputSize   += 9;
+
+                }
+
+            } else {
+
+                inputBuffer -= 8;
+                inputSize   += 8;
+                
+            }
+
+        } else {
+
+            inputBuffer -= 5;
+            inputSize   += 5;
+            
+        }
+
+    } else {
+
+        inputBuffer -= 3;
+        inputSize   += 3;
+
+    }
 
     return false;
 
+}
+
+bool CallOptimizator (char* JITBuffer, InputByteCode* _byteCodeStruct, int OLvl) {
+
     if (OLvl == 1) {
 
-        bool pushRes = false;
-
         if (*(inputBuffer - 1) == push)
-            pushRes = PushOptimizator (JITBuffer, _byteCodeStruct);    
-
-        return pushRes;
+            return PushOptimizator (JITBuffer, _byteCodeStruct);    
+        else if (*(inputBuffer - 1) == pop)
+            return PopOptimizator  (JITBuffer, _byteCodeStruct);
 
     } else {
 
