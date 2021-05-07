@@ -61,7 +61,8 @@ movsd   xmm0, [rsp]                                  ;
 add     rsp, 8                                       ;pop rax
 ```
 
-As we can see we have the useless commands that put our number into stack and then get it back. Let's implement the function which handles this code in a proper way:
+As we can see we have the useless commands that put our number into stack and then get it back. Let's implement the function which handles this code in a proper 
+:
 
 ```cpp
 bool PushNumPopRegOptimization (char* JITBuffer, InputByteCode* _byteCodeStruct) {
@@ -139,7 +140,7 @@ db      0x40                     ;
 movsd   xmm0, [0x40026a]
 ```
 
-Now we have the real result: instead of obviously doing ```push-pop``` we just do ```mov xmm0, [0x40026a]```. It's real great.
+Now we have the real result: instead of simply doing ```push-pop``` we just do ```mov xmm0, [0x40026a]```. It's really great.
 
 * ### Let's go on and give the other simple template:
 
@@ -148,7 +149,7 @@ push    <anything>
 pop
 ```
 
-This part of the code doesn't make sense with the code. So the best way just to skip it.
+This part of the code is inefficient and useless. So the best way is just to skip it.
 
 Let's implement the similar function that transforms the given part of the code into a proper one:
 
